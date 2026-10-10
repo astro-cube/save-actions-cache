@@ -43,6 +43,22 @@ runs:
               # Create the destination directory if it does not exist
               mkdir -p "$dest_dir"
               
+              # The runner looks up cached archives by the RESOLVED commit SHA,
+              # not by the ref as written in the workflow (actions/runner
+              # ActionManager.DownloadRepositoryActionAsync builds the cache
+              # path from downloadInfo.ResolvedSha). When workflows use tag
+              # refs (e.g. actions/checkout@v4), the local _actions directory
+              # is named after the tag, so keying the tarball by $ref would
+              # never be found. Resolve the ref to a commit SHA first via the
+              # tarball redirect (Location header ends with the SHA).
+              location=$(curl -fsSI -H "Authorization: Bearer $ACTION_CACHE_TOKEN" -o /dev/null -w '%header{location}' "https://api.github.com/repos/${owner}/${repo}/tarball/${ref}") || location=""
+              resolved_sha=$(basename "$location")
+              case "$resolved_sha" in
+                [0-9a-f]*) ;;
+                *) echo "::warning::Could not resolve $owner/$repo@$ref to a commit SHA; keeping ref-named entry"; resolved_sha="$ref" ;;
+              esac
+              dest_file="$dest_dir/${resolved_sha}.tar.gz"
+
               # Download the tarball from GitHub API. -f makes curl fail on HTTP
               # errors (an unauthenticated private repo returns a JSON 404 body),
               # and the move only happens on success, so the cache can never end
