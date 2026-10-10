@@ -44,10 +44,11 @@ runs:
             # refs (e.g. actions/checkout@v4), keying the tarball by $ref
             # never hits. Resolve the ref to a SHA BEFORE the exists-check,
             # otherwise the ref-named file short-circuits the lookup.
-            location=$(curl -fsSI -H "Authorization: Bearer $ACTION_CACHE_TOKEN" -o /dev/null -w '%header{location}' "https://api.github.com/repos/${owner}/${repo}/tarball/${ref}") || location=""
-            resolved_sha=$(basename "$location")
+# (portable: %header{} needs curl >= 7.84, which the runner image may
+# not ship; parse the JSON with plain grep instead)
+            resolved_sha=$(curl -fsSL -H "Authorization: Bearer $ACTION_CACHE_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${owner}/${repo}/commits/${ref}" | grep -oE '"sha":\s*"[0-9a-f]{40}"' | head -1 | grep -oE '[0-9a-f]{40}')
             case "$resolved_sha" in
-              [0-9a-f]*) ;;
+              [0-9a-f]{40}) ;;
               *) echo "::warning::Could not resolve $owner/$repo@$ref to a commit SHA; keeping ref-named entry"; resolved_sha="$ref" ;;
             esac
             dest_file="$dest_dir/${resolved_sha}.tar.gz"
