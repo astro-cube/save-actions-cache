@@ -47,10 +47,10 @@ runs:
             # (portable: %header{} needs curl >= 7.84, which the runner
             # image may not ship; parse the JSON with plain grep instead)
             resolved_sha=$(curl -fsSL -H "Authorization: Bearer $ACTION_CACHE_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${owner}/${repo}/commits/${ref}" | grep -oE '"sha":\s*"[0-9a-f]{40}"' | head -1 | grep -oE '[0-9a-f]{40}')
-            case "$resolved_sha" in
-              [0-9a-f]{40}) ;;
-              *) echo "::warning::Could not resolve $owner/$repo@$ref to a commit SHA; keeping ref-named entry"; resolved_sha="$ref" ;;
-            esac
+            if [ "${#resolved_sha}" -ne 40 ]; then
+              echo "::warning::Could not resolve $owner/$repo@$ref to a commit SHA (got '${resolved_sha:-empty}'); keeping ref-named entry"
+              resolved_sha="$ref"
+            fi
             dest_file="$dest_dir/${resolved_sha}.tar.gz"
             
             # Check if the tarball file already exists
